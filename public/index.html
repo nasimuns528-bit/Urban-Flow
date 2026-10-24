@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UrbanFlow - Localised Flood and Drainage Response Platform</title>
+  <meta name="description" content="UrbanFlow is a smart municipal flood response platform featuring citizen incident reporting, interactive geospatial maps, hotspot prioritisation, field task assignment, and real-time SLA tracking.">
+
+  <!-- Leaflet Geospatial CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- UrbanFlow Custom Design System -->
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/map.css">
+  <link rel="stylesheet" href="./css/components.css">
+
+  <!-- Chart.js for Municipal Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+
+  <!-- Top Emergency Municipal Header -->
+  <header class="app-header">
+    <div class="header-container">
+      
+      <!-- Brand & Ticker -->
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div class="brand-section" id="btn-brand-home">
+          <div class="brand-icon">🌊</div>
+          <div>
+            <div class="brand-title">UrbanFlow</div>
+            <span class="brand-subtitle">Flood &amp; Drainage Rapid Response</span>
+          </div>
+        </div>
+
+        <!-- Rain & Telemetry Alert Badge -->
+        <div class="header-weather-badge" id="header-weather-info" title="Click for detailed rain radar status">
+          <div class="pulse-dot"></div>
+          <span id="weather-alert-label">Heavy Downpour</span>
+          <span style="color: #FFFFFF; font-family: var(--font-mono); font-size: 0.75rem;" id="weather-rain-mm">34.2 mm/hr</span>
+        </div>
+      </div>
+
+      <!-- Demo Persona Role Switcher -->
+      <div class="role-bar" title="Switch active perspective to test citizen, worker, officer, or admin capabilities">
+        <button class="role-tab" data-role="citizen">
+          <span>🙋 Citizen</span>
+        </button>
+        <button class="role-tab" data-role="field_worker">
+          <span>👷 Field Crew</span>
+        </button>
+        <button class="role-tab" data-role="officer">
+          <span>👮 Officer</span>
+        </button>
+        <button class="role-tab active" data-role="admin">
+          <span>🏛️ Admin</span>
+        </button>
+      </div>
+
+      <!-- User Profile Badge -->
+      <div class="user-profile-badge">
+        <div class="user-avatar" id="user-profile-avatar">RV</div>
+        <div>
+          <div style="font-weight: 700; color: #FFFFFF;" id="user-profile-name">Commissioner Rajesh</div>
+          <div style="font-size: 0.68rem; color: var(--color-accent); font-weight: 700;" id="user-profile-role">ADMINISTRATOR</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Desktop Navigation Bar -->
+    <nav class="header-container" style="margin-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 0.5rem;">
+      <div class="main-nav">
+        <button class="nav-link active" data-view="map">🗺️ Interactive Map</button>
+        <button class="nav-link" data-view="report">⚠️ Report Flood Incident</button>
+        <button class="nav-link" data-view="track">🔍 Track My Report</button>
+        <button class="nav-link" data-view="hotspots">⚡ Hotspots &amp; Triage</button>
+        <button class="nav-link" data-view="tasks">👷 Work Orders</button>
+        <button class="nav-link" data-view="analytics">📊 Resilience Analytics</button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="app-main">
+
+    <!-- VIEW 1: Interactive Geospatial Flood Map -->
+    <section class="view-panel" id="view-map">
+      <div class="section-header">
+        <div class="section-title">
+          <span>Live Municipal Flood &amp; Inundation Map</span>
+          <span class="badge badge-accent">Auto-Refreshing</span>
+        </div>
+        <div class="section-actions">
+          <button class="btn btn-primary btn-sm" onclick="document.querySelector('[data-view=\'report\']').click()">
+            + Report Flood Incident
+          </button>
+        </div>
+      </div>
+
+      <!-- Map Container with Floating Controls & Legend -->
+      <div class="map-wrapper">
+        <div class="map-floating-controls">
+          <div class="map-filter-group">
+            <span style="font-size: 0.72rem; color: var(--text-dim); margin-right: 0.3rem; text-transform: uppercase; font-weight: 700;">Filter:</span>
+            <button class="map-filter-btn active" data-status="all">All Incidents</button>
+            <button class="map-filter-btn" data-status="reported">Active Unassigned</button>
+            <button class="map-filter-btn" data-status="assigned">Crews Dispatched</button>
+            <button class="map-filter-btn" data-status="resolved">Resolved</button>
+          </div>
+
+          <!-- Quick Live Location Capture Button -->
+          <button class="btn-live-gps" id="btn-toggle-live-gps" title="Capture and track your live location continuously">
+            <span class="live-beacon-dot"></span>
+            <span id="label-live-gps">Capture Live Location</span>
+          </button>
+        </div>
+
+        <!-- Leaflet Map Canvas -->
+        <div id="leaflet-map"></div>
+
+        <!-- Live Location Telemetry HUD -->
+        <div class="live-location-hud" id="live-location-hud">
+          <div class="live-hud-header">
+            <div class="live-hud-title">
+              <span class="pulse-dot" style="background:#00F0FF; box-shadow:0 0 8px #00F0FF;"></span>
+              <span>Live GPS Beacon Active</span>
+            </div>
+            <span class="badge badge-accent" id="live-gps-accuracy">± 4m</span>
+          </div>
+          <div class="live-hud-coords" id="live-hud-coords">13.064500° N, 80.282500° E</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted);" id="live-hud-address">Acquiring municipal street address...</div>
+          <div class="live-hud-proximity" id="live-hud-proximity" style="display:none;">
+            <span>⚠️</span>
+            <span id="live-proximity-text">Nearby Hotspot detected!</span>
+          </div>
+        </div>
+
+        <!-- Legend Overlay -->
+        <div class="map-legend">
+          <div class="legend-item"><span class="legend-dot critical"></span> Critical / Submerged (&gt;80)</div>
+          <div class="legend-item"><span class="legend-dot high"></span> High Inundation (60-79)</div>
+          <div class="legend-item"><span class="legend-dot moderate"></span> Moderate Ponding</div>
+          <div class="legend-item"><span class="legend-dot resolved"></span> Cleared &amp; Restored</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: Citizen Incident Report Wizard -->
+    <section class="view-panel" id="view-report" style="display: none;">
+      <div class="modal-container" style="max-width: 680px; margin: 0 auto; border: 1px solid var(--border-subtle);">
+        <div class="modal-header">
+          <h2 class="modal-title">🌊 Report Localised Flood or Drainage Failure</h2>
+          <span class="badge badge-critical">Emergency Response</span>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Provide incident details. Our municipal algorithm calculates priority scores based on depth and critical infrastructure to dispatch dewatering pumps immediately.
+          </p>
+
+          <form id="report-incident-form">
+            
+            <!-- Water Depth Visual Selector -->
+            <div class="form-group">
+              <label class="form-label">Water Depth Severity Level *</label>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary depth-select-btn" data-depth="ankle">
+                  🦶 Ankle
+                  <span style="font-size: 10px; opacity: 0.7;">10-15cm</span>
+                </button>
+                <button type="button" class="btn btn-secondary depth-select-btn active" data-depth="knee">
+                  🦵 Knee
+                  <span style="font-size: 10px; opacity: 0.7;">30-50cm</span>
+                </button>
+                <button type="button" class="btn btn-secondary depth-select-btn" data-depth="waist">
+                  🩳 Waist
+                  <span style="font-size: 10px; opacity: 0.7;">70-90cm</span>
+                </button>
+                <button type="button" class="btn btn-secondary depth-select-btn" data-depth="submerged">
+                  🚗 Submerged
+                  <span style="font-size: 10px; opacity: 0.7;">&gt;1 Meter</span>
+                </button>
+              </div>
+              <input type="hidden" id="input-water-depth" name="water_depth" value="knee">
+            </div>
+
+            <!-- Blockage Category -->
+            <div class="form-group">
+              <label class="form-label" for="select-blockage-type">Primary Drainage Blockage Cause *</label>
+              <select class="form-control" id="select-blockage-type" name="blockage_type" required>
+                <option value="drain_overflow">Drain Overflow / Storm Channel Choked</option>
+                <option value="silt_debris">Silt, Plastic &amp; Solid Waste Accumulation</option>
+                <option value="manhole_open">Manhole Cover Dislodged / Missing (High Hazard)</option>
+                <option value="river_spill">Canal or Riverbank Overflow</option>
+                <option value="culvert_blocked">Culvert Inundation / Structural Blockage</option>
+                <option value="other">Other Road Surface Water Issue</option>
+              </select>
+            </div>
+
+            <!-- Location with GPS and Map Pinning -->
+            <div class="form-group">
+              <label class="form-label">Location &amp; Coordinates *</label>
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-gps-locate">
+                  🛰️ Capture Live GPS
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-stream-live-gps">
+                  📡 Continuous Live Tracking: <span id="stream-status-label" style="margin-left:4px; font-weight:800;">OFF</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-pick-map">
+                  📍 Pick on Interactive Map
+                </button>
+              </div>
+
+              <!-- Live Location Telemetry Badge in Form -->
+              <div id="report-live-location-badge" style="display: none; background: rgba(0, 240, 255, 0.1); border: 1px solid var(--color-accent); border-radius: 6px; padding: 0.45rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.78rem; color: #E0F2FE;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>🛰️ Live Coordinates: <strong id="report-live-coords-text">13.064500, 80.282500</strong></span>
+                  <span class="badge badge-accent" id="report-live-accuracy">Accuracy: ±3m</span>
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;" id="report-live-address-text">Detecting street location...</div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <input type="text" class="form-control" id="input-latitude" name="latitude" placeholder="Latitude (e.g. 13.0645)" value="13.0645" required>
+                <input type="text" class="form-control" id="input-longitude" name="longitude" placeholder="Longitude (e.g. 80.2825)" value="80.2825" required>
+              </div>
+              <input type="text" class="form-control" id="input-address" name="address" placeholder="Street Address / Road Name" value="Near General Hospital Subway Cross" required>
+
+              <!-- Live Captured Location Map Preview inside Report Form -->
+              <div id="report-map-preview-wrapper" style="margin-top: 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle); background: #0B132B; padding: 0.6rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                  <span style="font-size: 0.75rem; font-weight: 700; color: var(--color-accent); display: flex; align-items: center; gap: 0.35rem;">
+                    <span class="live-beacon-dot" style="width: 7px; height: 7px;"></span>
+                    <span>Captured Location Map Visualizer</span>
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-view-captured-on-full-map" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">
+                    🗺️ View on Main Interactive Map
+                  </button>
+                </div>
+                <div id="report-mini-map" style="height: 180px; width: 100%; border-radius: 6px; overflow: hidden; background: #070B18;"></div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="input-landmark">Nearest Landmark (Optional)</label>
+              <input type="text" class="form-control" id="input-landmark" name="landmark" placeholder="e.g., Metro Pillar 140, Gate 2, Old Market">
+            </div>
+
+            <!-- Critical Infrastructure Proximity -->
+            <div class="form-group" style="background: rgba(255, 59, 48, 0.08); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid rgba(255, 59, 48, 0.2);">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #FFA39E;">
+                <input type="checkbox" name="critical_infra_nearby" value="true" style="width: 18px; height: 18px;">
+                Critical Infrastructure Impassable (Hospital, School, Power Substation, Metro)
+              </label>
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+              <label class="form-label" for="input-description">Incident Description &amp; Details</label>
+              <textarea class="form-control" id="input-description" name="description" rows="3" placeholder="Describe the water flow, stranded pedestrians, or blocked grates..."></textarea>
+            </div>
+
+            <!-- Photographic Evidence -->
+            <div class="form-group">
+              <label class="form-label" for="input-photo">Attach Flood Photo / Water Level Evidence</label>
+              <input type="file" class="form-control" id="input-photo" name="photo" accept="image/*">
+              <div id="photo-preview-container" style="margin-top: 0.5rem; display: none;"></div>
+            </div>
+
+            <!-- Citizen Contact (Optional) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div class="form-group">
+                <label class="form-label">Your Name</label>
+                <input type="text" class="form-control" name="citizen_name" placeholder="Anonymous or Full Name" value="Vikram Sen">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone (for Status SMS)</label>
+                <input type="tel" class="form-control" name="citizen_phone" placeholder="+91-98000-00000" value="+91-98402-33441">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1rem; margin-top: 0.5rem;">
+              🚀 Submit Emergency Report &amp; Generate Tracking ID
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: Public Incident Status Tracker -->
+    <section class="view-panel" id="view-track" style="display: none;">
+      <div style="max-width: 720px; margin: 0 auto;">
+        
+        <!-- Search Box -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.25rem;">
+          <h2 style="font-size: 1.2rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.35rem;">
+            🔍 Track Flood Incident &amp; Clearance Progress
+          </h2>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Enter your unique incident tracking code (e.g., <code>UF-2026-8491</code>) to view real-time triage status, assigned field crews, and before/after verification photos.
+          </p>
+
+          <form id="track-search-form" style="display: flex; gap: 0.5rem;">
+            <input type="text" class="form-control" id="track-search-input" placeholder="Enter Tracking Code (e.g. UF-2026-8491)" value="UF-2026-8491" required>
+            <button type="submit" class="btn btn-primary">Track</button>
+          </form>
+
+          <!-- Quick Demo Buttons -->
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
+            <span style="font-size: 0.75rem; color: var(--text-dim);">Quick Demo Codes:</span>
+            <button type="button" class="badge badge-accent" style="cursor: pointer;" onclick="document.getElementById('track-search-input').value='UF-2026-8491'; document.getElementById('track-search-form').dispatchEvent(new Event('submit'));">
+              UF-2026-8491 (In Progress)
+            </button>
+            <button type="button" class="badge badge-high" style="cursor: pointer;" onclick="document.getElementById('track-search-input').value='UF-2026-8492'; document.getElementById('track-search-form').dispatchEvent(new Event('submit'));">
+              UF-2026-8492 (Assigned)
+            </button>
+            <button type="button" class="badge badge-resolved" style="cursor: pointer;" onclick="document.getElementById('track-search-input').value='UF-2026-8490'; document.getElementById('track-search-form').dispatchEvent(new Event('submit'));">
+              UF-2026-8490 (Resolved)
+            </button>
+          </div>
+        </div>
+
+        <!-- Tracking Results Container -->
+        <div id="tracking-results-container"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: Municipal Officer Hotspot Prioritisation -->
+    <section class="view-panel" id="view-hotspots" style="display: none;">
+      <div id="hotspots-view-container"></div>
+    </section>
+
+    <!-- VIEW 5: Field Worker Work Orders -->
+    <section class="view-panel" id="view-tasks" style="display: none;">
+      <div style="max-width: 760px; margin: 0 auto;" id="field-tasks-container"></div>
+    </section>
+
+    <!-- VIEW 6: Administrator Resilience Analytics -->
+    <section class="view-panel" id="view-analytics" style="display: none;">
+      <div id="admin-view-container"></div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar (Phones) -->
+  <nav class="mobile-nav-bar">
+    <button class="mobile-nav-item active" data-view="map">
+      <span class="mobile-nav-icon">🗺️</span>
+      <span>Map</span>
+    </button>
+    <button class="mobile-nav-item" data-view="report">
+      <span class="mobile-nav-icon">⚠️</span>
+      <span>Report</span>
+    </button>
+    <button class="mobile-nav-item" data-view="track">
+      <span class="mobile-nav-icon">🔍</span>
+      <span>Track</span>
+    </button>
+    <button class="mobile-nav-item" data-view="tasks">
+      <span class="mobile-nav-icon">👷</span>
+      <span>Tasks</span>
+    </button>
+    <button class="mobile-nav-item" data-view="analytics">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Admin</span>
+    </button>
+  </nav>
+
+  <!-- MODAL: Incident Report Success Modal -->
+  <div class="modal-overlay" id="report-success-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--color-resolved);">✅ Incident Logged Successfully</h3>
+        <button class="modal-close" onclick="document.getElementById('report-success-modal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 1.5rem;">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem;">📡</div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          Your report has been received by Municipal Dispatch. An automated priority score has been computed.
+        </p>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--color-accent); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Your Unique Tracking Code</div>
+          <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: var(--color-accent); letter-spacing: 0.05em;" id="modal-tracking-code">
+            UF-2026-XXXX
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-secondary" style="flex: 1;" id="btn-copy-tracking">
+            📋 Copy Code
+          </button>
+          <button class="btn btn-primary" style="flex: 1;" id="btn-track-now">
+            🔍 Track Live Status
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Dispatch Field Crew Work Order -->
+  <div class="modal-overlay" id="dispatch-crew-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">👷 Dispatch Field Crew Work Order</h3>
+        <button class="modal-close" id="close-dispatch-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: var(--bg-card); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="font-family: var(--font-mono); color: var(--color-accent); font-weight: 700;" id="dispatch-incident-code">UF-2026-XXXX</span>
+            <span class="badge badge-critical" id="dispatch-priority-badge">Score: 90</span>
+          </div>
+          <div style="font-size: 0.9rem; font-weight: 700; color: #FFFFFF; margin-top: 0.3rem;" id="dispatch-incident-address">General Hospital ER Ramp</div>
+        </div>
+
+        <form id="dispatch-crew-form">
+          <div class="form-group">
+            <label class="form-label">Select Field Worker / Crew Lead *</label>
+            <select class="form-control" id="select-field-worker" required></select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group">
+              <label class="form-label">Crew Personnel Count</label>
+              <input type="number" class="form-control" id="input-crew-size" value="3" min="1" max="10">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target SLA Resolution Time</label>
+              <select class="form-control" id="select-sla-hours">
+                <option value="1">1 Hour (Critical SLA)</option>
+                <option value="2" selected>2 Hours (Standard Storm SLA)</option>
+                <option value="4">4 Hours (Moderate SLA)</option>
+                <option value="8">8 Hours (Scheduled Drainage)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Equipment Required &amp; Deployed</label>
+            <input type="text" class="form-control" id="input-equipment" value="Two 500-GPM High Flow Dewatering Pumps, Emergency Warning Cones">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Dispatch Instructions / Notes</label>
+            <textarea class="form-control" id="input-dispatch-notes" rows="2" placeholder="Clear ER ramp first, divert runoff to secondary retention basin..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+            🚀 Issue Work Order &amp; Dispatch Crew
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Triage & Adjust Priority -->
+  <div class="modal-overlay" id="triage-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">⚖️ Triage &amp; Verify Incident</h3>
+        <button class="modal-close" id="close-triage-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-family: var(--font-mono); color: var(--color-accent); font-weight: 700; margin-bottom: 0.75rem;" id="triage-incident-code">
+          UF-2026-XXXX
+        </div>
+
+        <form id="triage-form">
+          <div class="form-group">
+            <label class="form-label">Verification Status</label>
+            <select class="form-control" id="select-triage-status">
+              <option value="verified">Verified (Confirmed Flooding Hazard)</option>
+              <option value="in_progress">In Progress</option>
+              <option value="closed">Closed / False Alarm</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Adjust Hotspot Priority Score (0 - 100)</label>
+            <input type="number" class="form-control" id="input-triage-priority" min="0" max="100" step="0.5">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Officer Engineering Assessment Notes</label>
+            <textarea class="form-control" id="input-triage-notes" rows="2" placeholder="Verified via ward CCTV feed. Sub-surface culvert choked with debris."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%;">
+            Save Triage Assessment
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Field Worker Proof of Resolution Upload -->
+  <div class="modal-overlay" id="proof-resolution-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">✅ Submit Drainage Resolution Proof</h3>
+        <button class="modal-close" id="close-proof-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          To complete this work order, attach photographic proof showing the restored drainage channel and receding water level.
+        </p>
+
+        <form id="proof-resolution-form">
+          <div class="form-group">
+            <label class="form-label">Upload Clearance Photo Proof *</label>
+            <input type="file" class="form-control" name="proof_photo" accept="image/*" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Final Water Level Assessment</label>
+            <select class="form-control" name="water_level_after">
+              <option value="Completely Receded (Zero Ponding)">Completely Receded (Zero Ponding)</option>
+              <option value="Curb Height Normal (Under 5cm)">Curb Height Normal (Under 5cm)</option>
+              <option value="Submersible Pump Running on Standby">Submersible Pump Running on Standby</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Resolution Notes / Actions Taken</label>
+            <textarea class="form-control" name="notes" rows="3" placeholder="Silt and tree limbs extracted from storm drain grate. Flushing at 100% capacity." required></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+            Complete &amp; Submit Proof
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Client (Standalone + Live Mode) -->
+  <script src="./js/bundle.js"></script>
+
+</body>
+</html>

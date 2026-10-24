@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#312e81" />
+    </linearGradient>
+    <linearGradient id="drainWater" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#075985" stop-opacity="0.9" />
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#bg)" />
+  <rect x="0" y="270" width="600" height="130" fill="url(#drainWater)" />
+  <!-- Stalls and overflow -->
+  <rect x="80" y="180" width="120" height="90" fill="#f59e0b" opacity="0.6" rx="4" />
+  <text x="140" y="230" fill="#ffffff" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">STALL #12</text>
+  <rect x="240" y="180" width="120" height="90" fill="#f59e0b" opacity="0.6" rx="4" />
+  <text x="300" y="230" fill="#ffffff" font-family="sans-serif" font-weight="bold" font-size="14" text-anchor="middle">STALL #13</text>
+  <!-- Choked drain grate -->
+  <rect x="420" y="280" width="100" height="40" fill="#475569" rx="4" />
+  <line x1="430" y1="280" x2="430" y2="320" stroke="#cbd5e1" stroke-width="4" />
+  <line x1="450" y1="280" x2="450" y2="320" stroke="#cbd5e1" stroke-width="4" />
+  <line x1="470" y1="280" x2="470" y2="320" stroke="#cbd5e1" stroke-width="4" />
+  <line x1="490" y1="280" x2="490" y2="320" stroke="#cbd5e1" stroke-width="4" />
+  <text x="30" y="50" fill="#f8fafc" font-family="sans-serif" font-weight="bold" font-size="20">Old Town Market Drain Choke</text>
+  <text x="30" y="80" fill="#fbbf24" font-family="sans-serif" font-size="14">Water Depth: Waist-Deep (0.8m) • Silt & Plastic Debris</text>
+</svg>
